@@ -1,0 +1,16 @@
+﻿body {
+}
+
+.video-card {
+    height: 450px;
+    width: 100%;
+}
+
+.results-card {
+    height: 450px;
+    width: 100%;
+}
+
+.mdc-card__actions {
+    margin-top:10px;
+}

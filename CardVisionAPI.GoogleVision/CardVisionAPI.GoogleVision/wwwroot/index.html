@@ -1,0 +1,208 @@
+﻿
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Vision ML Example - Card Reader</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <link rel="icon" sizes="192x192" href="https://material.io/static/images/simple-lp/favicons/components-192x192.png">
+    <link rel="shortcut icon" href="https://material.io/static/images/simple-lp/favicons/components-72x72.png">
+    <script type='text/javascript' src='https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js'></script>
+    <script type='text/javascript' src='https://ajax.aspnetcdn.com/ajax/knockout/knockout-3.4.2.js'></script>
+    <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet" />
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/normalize/6.0.0/normalize.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css?family=Roboto:300,400,500,700" rel="stylesheet" />
+    <link href="css/styles.css" rel="stylesheet" />
+</head>
+<body class="mdc-typography">
+    <header class="mdc-toolbar mdc-toolbar--fixed">
+        <div class="mdc-toolbar__row">
+            <section class="mdc-toolbar__section mdc-toolbar__section--align-start">
+                <a href="/" class="catalog-back mdc-toolbar__menu-icon"><i class="material-icons">&#xE5C4;</i></a>
+                <span class="mdc-toolbar__title catalog-title">Card Tester</span>
+            </section>
+        </div>
+    </header>
+    <main>
+
+        <div class="mdc-toolbar-fixed-adjust"></div>
+        <div class="mdc-layout-grid">
+            <div class="mdc-layout-grid__inner">
+                <section class="mdc-layout-grid__cell mdc-layout-grid--align-left
+                    mdc-layout-grid__cell--span-6-desktop
+                    mdc-layout-grid__cell--span-4-tablet
+                    mdc-layout-grid__cell--span-2-phone">
+                    <div class="mdc-card video-card">
+                        <div class="mdc-card__media mdc-card__media--square">
+                            <div class="mdc-card__media-content">
+                                <canvas id="canvas" height="400" width="450" style="display:none;"></canvas>
+                                <video id="player" controls autoplay width="640" height="400"></video>
+                            </div>
+                        </div>
+                        <div class="mdc-card__actions">
+                            <div class="mdc-card__action-buttons">
+                                <button id="location" class="mdc-button mdc-card__action mdc-card__action--button">Location</button>
+                                <button id="labels" class="mdc-button mdc-card__action mdc-card__action--button">Label</button>
+                                <button id="ocr" class="mdc-button mdc-card__action mdc-card__action--button">Text</button>
+                                <button id="capture" class="mdc-button mdc-card__action mdc-card__action--button">Video Capture</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+                <section class="mdc-layout-grid__cell mdc-layout-grid--align-left
+                  mdc-layout-grid__cell--span-6-desktop
+                  mdc-layout-grid__cell--span-4-tablet
+                  mdc-layout-grid__cell--span-2-phone">
+                    <div class="mdc-card results-card">
+                        <span id="name"></span>
+                        <span id="label"></span>
+                        <span id="confidence"></span>
+                        <img src="" id="imageid" height="600" width="450" />
+                    </div>
+                </section>
+
+                <section class="mdc-layout-grid__cell mdc-layout-grid--align-left">
+                    File:
+                    <input type="file" id="FileName" style="width:180px" data-bind="value:addModel.InputFileName" />
+                </section>
+            </div>
+        </div>
+    </main>
+    <script>
+
+        mdc.ripple.MDCRipple.attachTo(document.querySelector('.mdc-button'));
+
+        const fileName = document.getElementById('FileName');
+        const player = document.getElementById('player');
+        const canvas = document.getElementById('canvas');
+        const context = canvas.getContext('2d');
+        const captureButton = document.getElementById('capture');
+        const locationButton = document.getElementById('location');
+        const labelButton = document.getElementById('labels');
+        const ocrButton = document.getElementById('ocr');
+
+        const constraints = {
+            video: true,
+        };
+
+        fileName.addEventListener('change', () => {
+            var context = canvas.getContext('2d');
+            var reader = new FileReader();
+            reader.onload = function () {
+                var dataURL = reader.result;
+                var imageObj = new Image();
+                imageObj.src = dataURL;
+                imageObj.onload = function () {
+                    context.drawImage(imageObj, 1, 1, canvas.width, canvas.height);
+                    canvas.style.display = "";
+                    player.style.display = "none";
+                }
+            }
+            var files = FileName.files;
+            reader.readAsDataURL(files[0]);
+        });
+
+        captureButton.addEventListener('click', () => {
+            // show the loader 
+            document.getElementById("imageid").src = "https://loading.io/spinners/typing/lg.-text-entering-comment-loader.gif";
+            // Draw the video frame to the canvas.
+            context.drawImage(player, 0, 0, canvas.width, canvas.height);
+            canvas.toBlob(function (blob) {
+                const formData = new FormData();
+                formData.append('file', blob);
+                const url = 'api/Classification';
+                fetch(url, {
+                    method: 'POST',
+                    body: formData
+                }).then((response) => response.json())
+                    .then((responseJSON) => {
+                        document.getElementById("name").innerText = responseJSON.name;
+                        document.getElementById("label").innerText = responseJSON.description;
+                        document.getElementById("confidence").innerText = "Confidence:" + responseJSON.confidence;
+                        document.getElementById("imageid").src = responseJSON.imageURL;
+                    });
+            }, 'image/jpeg', .95);
+        });
+
+        locationButton.addEventListener('click', () => {
+
+            // show the loader 
+            document.getElementById("imageid").src = "https://loading.io/spinners/typing/lg.-text-entering-comment-loader.gif";
+
+            // Draw the video frame to the canvas.
+            var files = FileName.files;
+            const formData = new FormData();
+            formData.append('file', files[0]);
+
+            const url = 'api/Classification/Location';
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then((response) => response.json())
+                .then((responseJSON) => {
+                    console.log(responseJSON);
+                    document.getElementById("name").innerText = responseJSON.description;
+                    document.getElementById("label").innerText = "";
+                    document.getElementById("confidence").innerText = "GPS:" + JSON.stringify(responseJSON.language);
+                    document.getElementById("imageid").src = responseJSON.imageURL;
+                });
+            }, 'image/jpeg', .95);
+
+        labelButton.addEventListener('click', () => {
+
+            // show the loader 
+            document.getElementById("imageid").src = "https://loading.io/spinners/typing/lg.-text-entering-comment-loader.gif";
+
+            // Draw the video frame to the canvas.
+            var files = FileName.files;
+            const formData = new FormData();
+            formData.append('file', files[0]);
+
+            const url = 'api/Classification/Label';
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then((response) => response.json())
+                .then((responseJSON) => {
+                    console.log(responseJSON);
+                    document.getElementById("name").innerText = `Lables: ${responseJSON.name}`;
+                    document.getElementById("label").innerText = "";
+                    document.getElementById("confidence").innerText = `Confidence: ${responseJSON.confidence}`;
+                    document.getElementById("imageid").src = responseJSON.imageURL;
+                });
+        }, 'image/jpeg', .95);
+
+        ocrButton.addEventListener('click', () => {
+
+            // show the loader 
+            document.getElementById("imageid").src = "https://loading.io/spinners/typing/lg.-text-entering-comment-loader.gif";
+
+            // Draw the video frame to the canvas.
+            var files = FileName.files;
+            const formData = new FormData();
+            formData.append('file', files[0]);
+
+            const url = 'api/Classification/OCR';
+            fetch(url, {
+                method: 'POST',
+                body: formData
+            }).then((response) => response.json())
+                .then((responseJSON) => {
+                    console.log(responseJSON);
+                    document.getElementById("name").innerText = `Description: ${responseJSON.description}`;
+                    document.getElementById("confidence").innerText = "";
+                    document.getElementById("imageid").src = responseJSON.imageURL;
+                });
+        }, 'image/jpeg', .95);
+
+
+        // Attach the video stream to the video element and autoplay.
+        navigator.mediaDevices.getUserMedia(constraints)
+        .then((stream) => {
+            player.srcObject = stream;
+        });
+    </script>
+</body>
+</html>
